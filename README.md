@@ -64,6 +64,8 @@ When containers are ready:
 
 - Frontend: [http://localhost:5173](http://localhost:5173)
 - Backend API: [http://localhost:8080/api/news](http://localhost:8080/api/news)
+- Swagger UI: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
+- OpenAPI JSON: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 - PostgreSQL: `localhost:5432`
 
 Stop everything:
@@ -83,6 +85,10 @@ docker compose down -v
 ## API
 
 Base URL: `http://localhost:8080/api/news`
+
+OpenAPI specification is auto-generated from code and available at:
+- `GET /v3/api-docs` (JSON)
+- Swagger UI: `/swagger-ui/index.html`
 
 ### Endpoints
 
