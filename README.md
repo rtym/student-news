@@ -155,6 +155,27 @@ The backend reads:
 
 ---
 
+## Database migrations (Flyway)
+
+Schema changes are managed with Flyway SQL migrations.
+
+- migration folder: `backend/src/main/resources/db/migration`
+- naming format: `V{number}__{description}.sql`
+- example: `V2__add_news_summary_column.sql`
+
+Current setup:
+- Flyway runs automatically on backend startup
+- Hibernate uses `validate` mode (it validates schema, but does not create/update tables)
+
+To add a new migration:
+1. Create a new SQL file in `db/migration` with next version number.
+2. Put DDL/DML changes in this file.
+3. Rebuild/restart backend (`docker compose up --build`).
+
+If you already have a non-empty database without Flyway history, `baseline-on-migrate=true` is enabled for easier local onboarding.
+
+---
+
 ## Notes
 
 - This project is intentionally simple and does **not** include authentication/authorization.
