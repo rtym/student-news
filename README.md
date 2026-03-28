@@ -14,13 +14,74 @@ Supported operations:
 
 ## Architecture
 
-The project contains 3 services:
+The solution follows the [C4 model](https://c4model.com/) at **context (C1)**, **container (C2)**, and **component (C3)** levels. Diagrams use [Mermaid C4 syntax](https://mermaid.js.org/syntax/c4.html) (experimental in some renderers; use a recent Mermaid-compatible viewer if a diagram does not render).
 
-1. `db` - PostgreSQL database
-2. `backend` - Spring Boot REST API (`/api/news`)
-3. `frontend` - simple React app for interacting with the API
+**C1 — System context:** who uses the system and what the system is responsible for, without internal technology.
 
-All services are containerized and run together via Docker Compose.
+**C2 — Containers:** runnable/deployable units (web app, API, database) and how they communicate.
+
+**C3 — Components:** major building blocks *inside* each container (here: backend Spring Boot and frontend React).
+
+### C1 — System context
+
+```mermaid
+C4Context
+    title Student News — System context (C1)
+    Person(user, "Demo user", "Uses a browser to create, edit, publish, archive, and delete student news")
+    System(studentNews, "Student News", "Demo system for managing student news (no authentication)")
+    Rel(user, studentNews, "Uses", "HTTPS")
+```
+
+### C2 — Containers
+
+```mermaid
+C4Container
+    title Student News — Containers (C2)
+    Person(user, "Demo user", "Operates the app from a browser")
+    System_Boundary(sn, "Student News") {
+        Container(web, "Web application", "React, Vite, Nginx", "Single-page UI; static assets served to the browser")
+        Container(api, "API application", "Java 21, Spring Boot", "REST API, validation, OpenAPI, Flyway on startup")
+        ContainerDb(db, "Database", "PostgreSQL 16", "Stores news and Flyway schema history")
+    }
+    Rel(user, web, "Uses", "HTTPS")
+    Rel(web, api, "Calls", "JSON / REST")
+    Rel(api, db, "Reads and writes", "JDBC")
+```
+
+Local deployment: **Docker Compose** builds and runs these three containers together (see `docker-compose.yml`).
+
+### C3 — Components (backend: API application)
+
+```mermaid
+C4Component
+    title API application — Components (C3)
+    Container_Boundary(api, "API application (Spring Boot)") {
+        Component(ctrl, "News REST layer", "Spring Web MVC", "HTTP endpoints under /api/news")
+        Component(svc, "News service", "Spring", "Create, update, publish, archive, delete, list logic")
+        Component(repo, "News repository", "Spring Data JPA", "Persistence for NewsItem entities")
+        Component(docs, "API documentation", "springdoc-openapi", "OpenAPI JSON and Swagger UI; reflects REST layer at runtime")
+        Component(migrate, "Schema migrations", "Flyway", "SQL scripts in classpath db/migration")
+    }
+    ContainerDb(db, "PostgreSQL", "PostgreSQL 16", "Tables e.g. news_items, flyway_schema_history")
+    Rel(ctrl, svc, "Uses")
+    Rel(svc, repo, "Uses")
+    Rel(repo, db, "JPA / JDBC")
+    Rel(migrate, db, "Applies migrations on startup")
+```
+
+### C3 — Components (frontend: web application)
+
+```mermaid
+C4Component
+    title Web application — Components (C3)
+    Container_Boundary(web, "Web application (React + Nginx)") {
+        Component(ui, "Student News UI", "React", "List, filters, forms, publish/archive/delete actions")
+        Component(client, "HTTP client", "fetch API", "JSON requests to configured API base URL")
+    }
+    System_Ext(api, "API application", "Spring Boot REST backend")
+    Rel(ui, client, "Uses")
+    Rel(client, api, "REST", "JSON over HTTP")
+```
 
 ---
 
