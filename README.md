@@ -59,7 +59,6 @@ C4Component
         Component(ctrl, "News REST layer", "Spring Web MVC", "HTTP endpoints under /api/news")
         Component(svc, "News service", "Spring", "Create, update, publish, archive, delete, list logic")
         Component(repo, "News repository", "Spring Data JPA", "Persistence for NewsItem entities")
-        Component(docs, "API documentation", "springdoc-openapi", "OpenAPI JSON and Swagger UI; reflects REST layer at runtime")
         Component(migrate, "Schema migrations", "Flyway", "SQL scripts in classpath db/migration")
     }
     ContainerDb(db, "PostgreSQL", "PostgreSQL 16", "Tables e.g. news_items, flyway_schema_history")
