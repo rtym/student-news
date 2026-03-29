@@ -106,10 +106,11 @@ function App() {
       <h1>Student News</h1>
       <p className="muted">Demo app with no authentication</p>
 
-      <form className="card" onSubmit={onSubmit}>
+      <form className="card" data-testid="news-form" onSubmit={onSubmit}>
         <h2>{editingId ? "Edit news" : "Create news"}</h2>
         <input
           name="title"
+          data-testid="input-title"
           placeholder="Title"
           value={form.title}
           onChange={onChange}
@@ -117,15 +118,18 @@ function App() {
         />
         <textarea
           name="content"
+          data-testid="input-content"
           placeholder="News content"
           value={form.content}
           onChange={onChange}
           rows={5}
         />
         <div className="actions">
-          <button type="submit">{editingId ? "Save changes" : "Create draft"}</button>
+          <button type="submit" data-testid="btn-submit">
+            {editingId ? "Save changes" : "Create draft"}
+          </button>
           {editingId && (
-            <button type="button" className="secondary" onClick={resetForm}>
+            <button type="button" className="secondary" data-testid="btn-cancel-edit" onClick={resetForm}>
               Cancel edit
             </button>
           )}
@@ -134,36 +138,51 @@ function App() {
 
       <section className="toolbar">
         <label htmlFor="status">Filter by status</label>
-        <select id="status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <select
+          id="status"
+          data-testid="select-status"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option value="ALL">All</option>
           <option value="DRAFT">Draft</option>
           <option value="PUBLISHED">Published</option>
           <option value="ARCHIVED">Archived</option>
         </select>
-        <button className="secondary" onClick={fetchNews}>Refresh</button>
+        <button type="button" className="secondary" data-testid="btn-refresh" onClick={fetchNews}>
+          Refresh
+        </button>
       </section>
 
-      {error && <p className="error">{error}</p>}
-      {loading && <p className="muted">Loading...</p>}
+      {error && <p className="error" data-testid="error-message">{error}</p>}
+      {loading && <p className="muted" data-testid="loading-indicator">Loading...</p>}
 
-      <section className="list">
+      <section className="list" data-testid="news-list">
         {news.map((item) => (
-          <article className="card" key={item.id}>
+          <article className="card" key={item.id} data-testid={`news-card-${item.id}`}>
             <header className="newsHeader">
               <h3>{item.title}</h3>
-              <span className={`status ${item.status.toLowerCase()}`}>{item.status}</span>
+              <span className={`status ${item.status.toLowerCase()}`} data-testid={`news-status-${item.id}`}>
+                {item.status}
+              </span>
             </header>
-            <p>{item.content}</p>
+            <p data-testid={`news-content-text-${item.id}`}>{item.content}</p>
             <small className="muted">Updated: {new Date(item.updatedAt).toLocaleString()}</small>
             <div className="actions">
-              <button onClick={() => edit(item)}>Edit</button>
+              <button type="button" data-testid={`btn-edit-${item.id}`} onClick={() => edit(item)}>
+                Edit
+              </button>
               {item.status !== "PUBLISHED" && (
-                <button onClick={() => changeStatus(item.id, "publish")}>Publish</button>
+                <button type="button" data-testid={`btn-publish-${item.id}`} onClick={() => changeStatus(item.id, "publish")}>
+                  Publish
+                </button>
               )}
               {item.status !== "ARCHIVED" && (
-                <button onClick={() => changeStatus(item.id, "archive")}>Archive</button>
+                <button type="button" data-testid={`btn-archive-${item.id}`} onClick={() => changeStatus(item.id, "archive")}>
+                  Archive
+                </button>
               )}
-              <button className="danger" onClick={() => remove(item.id)}>
+              <button type="button" className="danger" data-testid={`btn-delete-${item.id}`} onClick={() => remove(item.id)}>
                 Delete
               </button>
             </div>

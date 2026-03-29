@@ -100,6 +100,8 @@ C4Component
 .
 ├── backend/              # Spring Boot API
 ├── frontend/             # React UI
+├── e2e/                  # Playwright UI E2E tests
+├── docs/                 # BDD scenarios
 └── docker-compose.yml    # Local deployment
 ```
 
@@ -248,6 +250,47 @@ mvn test
 - **E2E REST tests** (`NewsApiE2ETest`): `@SpringBootTest` + `@AutoConfigureMockMvc` + **Testcontainers** PostgreSQL. They exercise the full stack (HTTP → controller → service → JPA → real DB, with Flyway migrations). **Docker must be running** so Testcontainers can start Postgres.
 
 Shared Testcontainers configuration lives in `AbstractPostgreSQLIntegrationTest`.
+
+### UI E2E tests (Playwright)
+
+Browser tests drive the real React UI (clicks, typing) against a **Docker Compose** stack (Postgres + API + Nginx frontend), so the full path **UI → REST → DB** is exercised.
+
+From the repository root:
+
+```bash
+cd e2e
+npm ci
+npx playwright install chromium
+npm test
+```
+
+Default behaviour:
+
+- **Global setup** runs `docker compose up -d --build` from the repo root, then waits until `http://localhost:8080/api/news` and `http://localhost:5173/` respond.
+- **Global teardown** runs `docker compose down -v` (also mirrored in CI with `if: always()`).
+
+If the stack is already running and you want to **skip** Compose management:
+
+```bash
+cd e2e
+E2E_SKIP_DOCKER=1 npm test
+```
+
+Optional environment variables (defaults suit local Docker Compose port mapping):
+
+| Variable | Purpose |
+|----------|---------|
+| `E2E_SKIP_DOCKER` | Set to `1` to skip `docker compose up` / `down` in Playwright global hooks |
+| `PLAYWRIGHT_BASE_URL` | UI base URL (default `http://localhost:5173`) |
+| `E2E_API_NEWS_URL` | REST base for test cleanup via `APIRequestContext` (default `http://localhost:8080/api/news`) |
+| `E2E_API_HEALTH_URL` | URL polled in global setup (default `http://localhost:8080/api/news`) |
+| `E2E_WEB_HEALTH_URL` | URL polled in global setup (default `http://localhost:5173/`) |
+
+HTML report (after a run): `cd e2e && npx playwright show-report`
+
+### CI (GitHub Actions)
+
+Workflow [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) runs on pushes and pull requests to `main` / `master`: installs Playwright Chromium, runs `npm test` in `e2e/` (which starts Docker via global setup), uploads the Playwright HTML report on failure, and always runs `docker compose down -v`.
 
 ---
 
