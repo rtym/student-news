@@ -236,6 +236,21 @@ If you already have a non-empty database without Flyway history, `baseline-on-mi
 
 ---
 
+## Testing (backend)
+
+From `backend/`:
+
+```bash
+mvn test
+```
+
+- **Unit tests** (`NewsServiceTest`): Mockito-based; no database.
+- **E2E REST tests** (`NewsApiE2ETest`): `@SpringBootTest` + `@AutoConfigureMockMvc` + **Testcontainers** PostgreSQL. They exercise the full stack (HTTP → controller → service → JPA → real DB, with Flyway migrations). **Docker must be running** so Testcontainers can start Postgres.
+
+Shared Testcontainers configuration lives in `AbstractPostgreSQLIntegrationTest`.
+
+---
+
 ## Notes
 
 - This project is intentionally simple and does **not** include authentication/authorization.
