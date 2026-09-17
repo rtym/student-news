@@ -1,4 +1,4 @@
-# Updated by Branch 1
+# Updated by Branch 1 and 2
 # Student News Demo
 
 Demo application for managing student news without authentication.
