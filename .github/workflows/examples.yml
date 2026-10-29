@@ -1,0 +1,29 @@
+name: Hello world
+
+# The smallest useful workflow: a starting point for adding your own jobs.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: # adds a "Run workflow" button on the Actions tab
+
+jobs:
+  hello:
+    name: Say hello
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print a greeting
+        run: echo "Hello, ${{ github.actor }}!"
+      - name: Show where we are
+        run: |
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+  # needs: makes this job wait for 'hello' and only run if it passed.
+  goodbye:
+    name: Say goodbye
+    needs: hello
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print a farewell
+        run: echo "Goodbye! The hello job finished first."
