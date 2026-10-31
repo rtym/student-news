@@ -33,7 +33,7 @@ public class NewsService {
 
     public NewsResponse create(NewsRequest request) {
         NewsItem item = new NewsItem();
-        item.setTitle(request.title().trim());
+        item.setTitl(request.title().trim());
         item.setContent(request.content().trim());
         item.setStatus(NewsStatus.DRAFT);
         return toResponse(newsRepository.save(item));
