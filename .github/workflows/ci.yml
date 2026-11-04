@@ -132,7 +132,7 @@ jobs:
   # spending minutes building images for code whose tests already failed.
   package:
     name: Package · container images
-    needs: [frontend-lint, backend-test, frontend-build]
+    needs: [frontend-lint, backend-test, frontend-build, integration-test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -162,7 +162,7 @@ jobs:
   ci-status:
     name: CI status
     if: always()
-    needs: [frontend-lint, backend-test, frontend-build, package]
+    needs: [frontend-lint, backend-test, frontend-build, integration-test, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any stage failed
