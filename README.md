@@ -6,6 +6,7 @@
 Demo application for managing student news without authentication.
 
 Supported operations:
+
 - list news
 - create news drafts
 - edit existing news
@@ -15,6 +16,8 @@ Supported operations:
 
 ---
 
+README ONLY COMMIT
+
 ## Architecture
 
 The solution follows the [C4 model](https://c4model.com/) at **context (C1)**, **container (C2)**, and **component (C3)** levels. Diagrams use [Mermaid C4 syntax](https://mermaid.js.org/syntax/c4.html) (experimental in some renderers; use a recent Mermaid-compatible viewer if a diagram does not render).
@@ -23,7 +26,7 @@ The solution follows the [C4 model](https://c4model.com/) at **context (C1)**, *
 
 **C2 — Containers:** runnable/deployable units (web app, API, database) and how they communicate.
 
-**C3 — Components:** major building blocks *inside* each container (here: backend Spring Boot and frontend React).
+**C3 — Components:** major building blocks _inside_ each container (here: backend Spring Boot and frontend React).
 
 ### C1 — System context
 
@@ -152,6 +155,7 @@ docker compose down -v
 Base URL: `http://localhost:8080/api/news`
 
 OpenAPI specification is auto-generated from code and available at:
+
 - `GET /v3/api-docs` (JSON)
 - Swagger UI: `/swagger-ui/index.html`
 
@@ -229,10 +233,12 @@ Schema changes are managed with Flyway SQL migrations.
 - example: `V2__add_news_summary_column.sql`
 
 Current setup:
+
 - Flyway runs automatically on backend startup
 - Hibernate uses `validate` mode (it validates schema, but does not create/update tables)
 
 To add a new migration:
+
 1. Create a new SQL file in `db/migration` with next version number.
 2. Put DDL/DML changes in this file.
 3. Rebuild/restart backend (`docker compose up --build`).
@@ -281,13 +287,13 @@ E2E_SKIP_DOCKER=1 npm test
 
 Optional environment variables (defaults suit local Docker Compose port mapping):
 
-| Variable | Purpose |
-|----------|---------|
-| `E2E_SKIP_DOCKER` | Set to `1` to skip `docker compose up` / `down` in Playwright global hooks |
-| `PLAYWRIGHT_BASE_URL` | UI base URL (default `http://localhost:5173`) |
-| `E2E_API_NEWS_URL` | REST base for test cleanup via `APIRequestContext` (default `http://localhost:8080/api/news`) |
-| `E2E_API_HEALTH_URL` | URL polled in global setup (default `http://localhost:8080/api/news`) |
-| `E2E_WEB_HEALTH_URL` | URL polled in global setup (default `http://localhost:5173/`) |
+| Variable              | Purpose                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `E2E_SKIP_DOCKER`     | Set to `1` to skip `docker compose up` / `down` in Playwright global hooks                    |
+| `PLAYWRIGHT_BASE_URL` | UI base URL (default `http://localhost:5173`)                                                 |
+| `E2E_API_NEWS_URL`    | REST base for test cleanup via `APIRequestContext` (default `http://localhost:8080/api/news`) |
+| `E2E_API_HEALTH_URL`  | URL polled in global setup (default `http://localhost:8080/api/news`)                         |
+| `E2E_WEB_HEALTH_URL`  | URL polled in global setup (default `http://localhost:5173/`)                                 |
 
 HTML report (after a run): `cd e2e && npx playwright show-report`
 
