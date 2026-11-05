@@ -94,19 +94,9 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-        #intentional break
-      - name: Intentionally fail Node 20
-        if: matrix.node == 20
-        run: exit 1
-
       - name: Build
         working-directory: frontend
-        run: |
-          if [ "${{ matrix.node }}" = "20" ]; then
-            echo "Intentional Node 20 failure to demonstrate fail-fast: false"
-            exit 1
-          fi
-          npm run build
+        run: npm run build
 
       - name: Upload build output
         uses: actions/upload-artifact@v7
