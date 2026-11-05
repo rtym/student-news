@@ -96,7 +96,12 @@ jobs:
 
       - name: Build
         working-directory: frontend
-        run: npm run build
+        run: |
+          if [ "${{ matrix.node }}" = "20" ]; then
+            echo "Intentional failure to demonstrate branch protection"
+            exit 1
+          fi
+          npm run build
 
       - name: Upload build output
         uses: actions/upload-artifact@v7
