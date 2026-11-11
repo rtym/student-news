@@ -37,7 +37,8 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      # The UI stays at http://localhost:5173; nginx inside listens on 8080.
+      - "5173:8080"
 
 volumes:
   postgres_data:
