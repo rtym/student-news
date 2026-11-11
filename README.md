@@ -43,7 +43,7 @@ C4Container
     Person(user, "Demo user", "Operates the app from a browser")
     System_Boundary(sn, "Student News") {
         Container(web, "Web application", "React, Vite, Nginx", "Single-page UI; static assets served to the browser")
-        Container(api, "API application", "Java 21, Spring Boot", "REST API, validation, OpenAPI, Flyway on startup")
+        Container(api, "API application", "Java 27, Spring Boot", "REST API, validation, OpenAPI, Flyway on startup")
         ContainerDb(db, "Database", "PostgreSQL 16", "Stores news and Flyway schema history")
     }
     Rel(user, web, "Uses", "HTTPS")
@@ -90,9 +90,9 @@ C4Component
 ## Tech stack
 
 - PostgreSQL 16
-- Java 21 + Spring Boot 3
+- Java 27 + Spring Boot 4
 - Spring Data JPA + Hibernate
-- React 18 + Vite
+- React 19 + Vite
 - Docker + Docker Compose
 
 ---
@@ -155,7 +155,7 @@ docker compose down -v
 | Service | Base image | Runs as | Listens on (container) | Published on host |
 |---------|------------|---------|------------------------|-------------------|
 | `frontend` | `nginxinc/nginx-unprivileged:1.27-alpine` | `nginx` (uid 101) | 8080 | `5173` |
-| `backend` | `eclipse-temurin:21-jre-alpine` | `app` (uid 10001) | 8080 | `8080` |
+| `backend` | `eclipse-temurin:27-jre-alpine` | `app` (uid 10001) | 8080 | `8080` |
 | `db` | `postgres:16-alpine` | `postgres` (server processes) | 5432 | `127.0.0.1:5432` |
 
 Neither application container runs as root:

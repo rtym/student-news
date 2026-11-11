@@ -8,21 +8,22 @@ the last commit before the container hardening; "after" is the current tree.
 
 | | Before (`6e6d3eb`) | After |
 |---|---|---|
-| Backend image size | 606 MB | 400 MB |
+| Backend image size | 606 MB | 417 MB |
 | Frontend image size | 76.1 MB | 76.3 MB |
 | Backend process runs as | `root` | `app` (uid 10001) |
 | Frontend processes run as | `root` master, `nginx` workers | `nginx` (uid 101), all of them |
-| Backend rebuild after a one-line Java change | 76 s, of which the Maven step 72.8 s (every dependency downloaded again) | 10–28 s over three runs; Maven step 5.7–9.6 s, dependency layer `CACHED` |
+| Backend rebuild after a one-line Java change | 76 s, of which the Maven step 72.8 s (every dependency downloaded again) | 3–5 s over three runs; Maven step 2.7–3.5 s, dependency layer `CACHED` |
 | Frontend build context | 48 MB (local `node_modules` included) | 1.2 kB |
 | React version in a locally built frontend image | 18.3.1 (copied from a stale local `node_modules`) | 19.3.1, as pinned in `package-lock.json` |
-| Java: build / runtime / CI | JDK 26 / JRE 25 / JDK 21 | 21 / 21 / 21 |
+| Java: `pom.xml` target / build / runtime / CI | 21 / JDK 26 / JRE 25 / JDK 21 | 27 / 27 / 27 / 27 |
 | Database credentials | hard-coded twice in `docker-compose.yml` | `${POSTGRES_*:-default}` variables, documented in `.env.example` |
 | Postgres port on the host | `0.0.0.0:5432` | `127.0.0.1:5432` |
 
 Measured with Docker Desktop (Engine 29.9.3) on Apple Silicon, with base images
-already pulled and a warm build cache. Total rebuild times vary from run to
-run, mostly because exporting the image took anywhere from 2 to 12 s; the
-Maven step is the stable signal.
+already pulled and a warm build cache. Rebuild times vary between sessions:
+an earlier set of runs with the same Dockerfile on Java 21 took 10–28 s, most
+of it exporting the image. What stays constant is the dependency layer showing
+`CACHED` and the Maven step taking seconds instead of 73.
 
 ## What changed, and which principle it shows
 
@@ -48,11 +49,12 @@ package step still runs online rather than with `-o`.
 
 **Backend: one Java version and a smaller runtime image — minimal base
 image.** The image compiled with JDK 26 and ran on JRE 25, while `pom.xml`
-targets 21 and CI runs the unit tests on JDK 21, so CI never tested the JVM
-that shipped. Both stages now use 21, an LTS release. The runtime stage uses
-`eclipse-temurin:21-jre-alpine`: a JRE without compiler or Maven, on Alpine
-instead of Ubuntu. That is the 606 → 400 MB. Most of what remains is the JRE
-itself and the 60 MB application jar. The multi-stage build is what makes this
+targeted 21 and CI ran the unit tests on JDK 21, so CI never tested the JVM
+that shipped. The compile target, CI and both stages now use Java 27 (the
+build stage needs Maven 3.10, the first Maven line with Temurin 27 images).
+The runtime stage uses `eclipse-temurin:27-jre-alpine`: a JRE without compiler
+or Maven, on Alpine instead of Ubuntu. That is the 606 → 417 MB. Most of what
+remains is the JRE itself (195 MB) and the 60 MB application jar. The multi-stage build is what makes this
 possible: Maven and the JDK exist only in the `build` stage, which is
 discarded.
 
@@ -114,7 +116,7 @@ docker build -f /tmp/Dockerfile.before -t student-news-backend:before backend
    ```
 
    An image is a read-only stack of layers, one per Dockerfile instruction.
-   The history shows only the runtime stage: the JRE base layers (163 MB is the
+   The history shows only the runtime stage: the JRE base layers (195 MB is the
    JRE), the `adduser` layer and the 60 MB jar. Maven, the JDK and the
    downloaded dependencies stayed in the `build` stage, which is not part of
    the image.
@@ -206,6 +208,8 @@ docker build -f /tmp/Dockerfile.before -t student-news-backend:before backend
 - **"So environment variables are secret?"** No. `docker inspect` on a running
   container shows them. They keep credentials out of images and out of git;
   real secret handling (Compose `secrets:`, Kubernetes Secrets) comes later.
-- **Dependabot will propose newer Java base images** (it has proposed 25 and 26
-  before). Moving the images alone would split build, runtime and CI again;
-  change `pom.xml`, `ci.yml` and both Dockerfile stages together or not at all.
+- **"Is 27 an LTS?"** No. Java 27 is a feature release: it gets updates until
+  Java 28 ships, while LTS releases (21, 25) are supported for years. When it
+  is time to move, `pom.xml`, `ci.yml` and both Dockerfile stages change
+  together. Dependabot will propose newer base images on their own; merging
+  only those would split build, runtime and CI again.
