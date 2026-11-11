@@ -104,7 +104,8 @@ C4Component
 ├── backend/              # Spring Boot API
 ├── frontend/             # React UI
 ├── e2e/                  # Playwright UI E2E tests
-├── docs/                 # BDD scenarios
+├── docs/                 # BDD scenarios and teaching notes
+├── .env.example          # Documented Compose settings (copy to .env)
 └── docker-compose.yml    # Local deployment
 ```
 
@@ -125,13 +126,15 @@ From the project root:
 docker compose up --build
 ```
 
+No setup is needed: without a `.env` file Compose uses the defaults described in [Configuration (.env)](#configuration-env).
+
 When containers are ready:
 
 - Frontend: [http://localhost:5173](http://localhost:5173)
 - Backend API: [http://localhost:8080/api/news](http://localhost:8080/api/news)
 - Swagger UI: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
 - OpenAPI JSON: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: `localhost:5432`, published on `127.0.0.1` only, for a database client or a backend run outside Docker (the containers themselves do not need it)
 
 Stop everything:
 
@@ -144,6 +147,27 @@ Stop and remove DB volume (clean reset):
 ```bash
 docker compose down -v
 ```
+
+---
+
+## Containers
+
+| Service | Base image | Runs as | Listens on (container) | Published on host |
+|---------|------------|---------|------------------------|-------------------|
+| `frontend` | `nginxinc/nginx-unprivileged:1.27-alpine` | `nginx` (uid 101) | 8080 | `5173` |
+| `backend` | `eclipse-temurin:21-jre-alpine` | `app` (uid 10001) | 8080 | `8080` |
+| `db` | `postgres:16-alpine` | `postgres` (server processes) | 5432 | `127.0.0.1:5432` |
+
+Neither application container runs as root:
+
+```bash
+docker compose exec backend whoami    # app
+docker compose exec frontend whoami   # nginx
+```
+
+The frontend's nginx listens on 8080 instead of 80, because binding a port below 1024 has traditionally required root. Compose maps it to 5173 on the host, so the URL does not change. The frontend and backend both listen on 8080 without clashing because each container has its own network namespace.
+
+`docker compose exec db whoami` prints `root`: the Postgres image starts as root and its entrypoint switches to the `postgres` user before starting the server, but `exec` uses the image's default user.
 
 ---
 
@@ -204,19 +228,33 @@ curl -X DELETE http://localhost:8080/api/news/1
 
 ---
 
-## Database configuration
+## Configuration (.env)
 
-Default DB settings used by Docker Compose:
+Docker Compose reads the database settings from environment variables, with defaults so the stack runs without any setup:
 
-- database: `student_news`
-- user: `student`
-- password: `student`
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `POSTGRES_DB` | `student_news` | `db` (creates the database), `backend` (JDBC URL) |
+| `POSTGRES_USER` | `student` | `db`, `backend` |
+| `POSTGRES_PASSWORD` | `student` | `db`, `backend` |
+
+To change them, copy the documented example and edit the copy:
+
+```bash
+cp .env.example .env
+```
+
+`.env` is git-ignored; `.env.example` is committed and holds placeholders only. CI runs without a `.env` file, on the defaults.
+
+Postgres applies these values only when its data volume is first created. After changing them, recreate the volume with `docker compose down -v`.
 
 The backend reads:
 
 - `SPRING_DATASOURCE_URL`
 - `SPRING_DATASOURCE_USERNAME`
 - `SPRING_DATASOURCE_PASSWORD`
+
+Compose sets them from the variables above. The JDBC URL uses the service name as host name: `jdbc:postgresql://db:5432/student_news`. Started outside Docker, the backend falls back to `jdbc:postgresql://localhost:5432/student_news` with user and password `student` (see `application.properties`); if you changed the values in `.env`, set the three `SPRING_DATASOURCE_*` variables to match.
 
 ---
 
