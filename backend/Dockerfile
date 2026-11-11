@@ -1,6 +1,7 @@
 # Build and runtime use the same Java major version as the project target
-# (java.version in pom.xml) and the CI unit-test job: 21, an LTS release.
-FROM maven:3.9-eclipse-temurin-21 AS build
+# (java.version in pom.xml) and the CI unit-test job: 27. Temurin 27 builds of
+# the Maven image start at Maven 3.10.
+FROM maven:3.10-eclipse-temurin-27 AS build
 WORKDIR /app
 # Dependencies first: this layer is only rebuilt when pom.xml changes, so a
 # change to Java code reuses it instead of downloading everything again.
@@ -11,7 +12,7 @@ RUN mvn -B -q clean package -DskipTests
 
 # JRE only, on Alpine: no compiler, no Maven, no Ubuntu userland in the image
 # that actually runs.
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:27-jre-alpine
 WORKDIR /app
 # Run as an unprivileged user. The numeric id lets Kubernetes verify
 # runAsNonRoot; the jar stays owned by root, so the app can read it but not

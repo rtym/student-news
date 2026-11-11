@@ -15,7 +15,7 @@
     <description>Demo student news API</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>27</java.version>
     </properties>
 
     <dependencies>
