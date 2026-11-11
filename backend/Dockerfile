@@ -1,7 +1,7 @@
 # Build and runtime use the same Java major version as the project target
 # (java.version in pom.xml) and the CI unit-test job: 27. Temurin 27 builds of
 # the Maven image start at Maven 3.10.
-FROM maven:3.10-eclipse-temurin-27 AS build
+FROM maven:3-eclipse-temurin-26 AS build
 WORKDIR /app
 # Dependencies first: this layer is only rebuilt when pom.xml changes, so a
 # change to Java code reuses it instead of downloading everything again.
