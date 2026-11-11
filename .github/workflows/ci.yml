@@ -55,7 +55,7 @@ jobs:
 
       # -B is batch mode (no colour codes in the log) and surefire runs the unit
       # tests only. The integration tests need a database, so they are excluded
-      # here and covered by the E2E workflow instead.
+      # here and run in the backend-integration-test job below.
       - name: Run unit tests
         working-directory: backend
         run: mvn -B test -Dtest='!*IntegrationTest,!*E2ETest'
@@ -67,6 +67,38 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: backend-surefire-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  # ---------------------------------------------------------------- stage 1
+  # The Testcontainers tests start a real PostgreSQL in Docker, which GitHub's
+  # Ubuntu runners provide. They take longer than the unit tests, so they get
+  # their own job and run alongside them rather than in front of them.
+  backend-integration-test:
+    name: Backend · integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6
+        with:
+          java-version: '27'
+          distribution: temurin
+          cache: maven
+
+      # The mirror image of the unit-test filter: only the tests that need a
+      # database.
+      - name: Run integration tests
+        working-directory: backend
+        run: mvn -B test -Dtest='*IntegrationTest,*E2ETest'
+
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-integration-surefire-reports
           path: backend/target/surefire-reports/
           retention-days: 7
 
@@ -102,11 +134,11 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------- stage 2
-  # Packaging only runs once both stage-1 jobs are green. There is no point
+  # Packaging only runs once every earlier job is green. There is no point
   # spending minutes building images for code whose tests already failed.
   package:
     name: Package · container images
-    needs: [frontend-lint, backend-test, frontend-build]
+    needs: [frontend-lint, backend-test, backend-integration-test, frontend-build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -136,7 +168,7 @@ jobs:
   ci-status:
     name: CI status
     if: always()
-    needs: [frontend-lint, backend-test, frontend-build, package]
+    needs: [frontend-lint, backend-test, backend-integration-test, frontend-build, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any stage failed
