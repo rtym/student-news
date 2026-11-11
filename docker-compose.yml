@@ -10,7 +10,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-student}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-student}
     ports:
-      - "5432:5432"
+      # Not needed by the backend container (it uses db:5432 on the Compose
+      # network) or by any test. Published for local development: a backend
+      # run from the IDE or `mvn spring-boot:run` connects to localhost:5432
+      # (the default in application.properties), as can a database client.
+      # Bound to 127.0.0.1 so the demo credentials are not reachable from the
+      # network.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
