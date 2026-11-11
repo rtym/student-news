@@ -17,73 +17,33 @@ Supported operations:
 
 ## Architecture
 
-The solution follows the [C4 model](https://c4model.com/) at **context (C1)**, **container (C2)**, and **component (C3)** levels. Diagrams use [Mermaid C4 syntax](https://mermaid.js.org/syntax/c4.html) (experimental in some renderers; use a recent Mermaid-compatible viewer if a diagram does not render).
+The architecture is described with the SEI **Views and Beyond** method in
+[`architecture/docs/`](architecture/docs/README.md). Its [roadmap](architecture/docs/README.md)
+says which document answers which question. Every diagram is UML, drawn with PlantUML; the
+`.puml` sources sit next to the images in `architecture/docs/diagrams/`, and the colours are
+explained in the [legend](architecture/docs/diagrams/legend.png).
 
-**C1 — System context:** who uses the system and what the system is responsible for, without internal technology.
+| Document | What it answers | UML diagrams |
+|----------|-----------------|--------------|
+| [System overview](architecture/docs/system-overview.md) | What does the system do, and what shaped it? Use cases UC-1 to UC-6, constraints, quality scenarios | use case, component (context) |
+| [Decomposition view](architecture/docs/view-module-decomposition.md) | Where does each piece of code live? | package |
+| [Layered view](architecture/docs/view-module-layered.md) | Which backend class does what, and what may it call? | class |
+| [Runtime view](architecture/docs/view-cnc-client-server.md) | What runs, how do the parts talk, and what is the REST interface? | component, sequence (UC-1, UC-2, UC-4), state machine |
+| [Deployment view](architecture/docs/view-allocation-deployment.md) | Which container runs what, on which port, as which user? | deployment |
+| [CI pipeline view](architecture/docs/view-allocation-ci.md) | Which job checks what before a merge? | activity |
+| [Rationale](architecture/docs/rationale.md) | Why is it built this way? Six architecture decision records | — |
 
-**C2 — Containers:** runnable/deployable units (web app, API, database) and how they communicate.
+### Use cases
 
-**C3 — Components:** major building blocks *inside* each container (here: backend Spring Boot and frontend React).
+[![Use cases — Student News (UC-1 to UC-6)](architecture/docs/diagrams/system-overview-use-cases.png)](architecture/docs/system-overview.md#primary-functional-requirements-use-cases)
 
-### C1 — System context
+### Runtime components
 
-```mermaid
-C4Context
-    title Student News — System context (C1)
-    Person(user, "Demo user", "Uses a browser to create, edit, publish, archive, and delete student news")
-    System(studentNews, "Student News", "Demo system for managing student news (no authentication)")
-    Rel(user, studentNews, "Uses", "HTTPS")
-```
+[![Runtime — client-server components and connectors (UML component diagram)](architecture/docs/diagrams/view-cnc-client-server.png)](architecture/docs/view-cnc-client-server.md)
 
-### C2 — Containers
+### Deployment
 
-```mermaid
-C4Container
-    title Student News — Containers (C2)
-    Person(user, "Demo user", "Operates the app from a browser")
-    System_Boundary(sn, "Student News") {
-        Container(web, "Web application", "React, Vite, Nginx", "Single-page UI; static assets served to the browser")
-        Container(api, "API application", "Java 27, Spring Boot", "REST API, validation, OpenAPI, Flyway on startup")
-        ContainerDb(db, "Database", "PostgreSQL 16", "Stores news and Flyway schema history")
-    }
-    Rel(user, web, "Uses", "HTTPS")
-    Rel(web, api, "Calls", "JSON / REST")
-    Rel(api, db, "Reads and writes", "JDBC")
-```
-
-Local deployment: **Docker Compose** builds and runs these three containers together (see `docker-compose.yml`).
-
-### C3 — Components (backend: API application)
-
-```mermaid
-C4Component
-    title API application — Components (C3)
-    Container_Boundary(api, "API application (Spring Boot)") {
-        Component(ctrl, "News REST layer", "Spring Web MVC", "HTTP endpoints under /api/news")
-        Component(svc, "News service", "Spring", "Create, update, publish, archive, delete, list logic")
-        Component(repo, "News repository", "Spring Data JPA", "Persistence for NewsItem entities")
-        Component(migrate, "Schema migrations", "Flyway", "SQL scripts in classpath db/migration")
-    }
-    ContainerDb(db, "PostgreSQL", "PostgreSQL 16", "Tables e.g. news_items, flyway_schema_history")
-    Rel(ctrl, svc, "Uses")
-    Rel(svc, repo, "Uses")
-    Rel(repo, db, "JPA / JDBC")
-    Rel(migrate, db, "Applies migrations on startup")
-```
-
-### C3 — Components (frontend: web application)
-
-```mermaid
-C4Component
-    title Web application — Components (C3)
-    Container_Boundary(web, "Web application (React + Nginx)") {
-        Component(ui, "Student News UI", "React", "List, filters, forms, publish/archive/delete actions")
-        Component(client, "HTTP client", "fetch API", "JSON requests to configured API base URL")
-    }
-    System_Ext(api, "API application", "Spring Boot REST backend")
-    Rel(ui, client, "Uses")
-    Rel(client, api, "REST", "JSON over HTTP")
-```
+[![Deployment — Docker Compose stack on one host (UML deployment diagram)](architecture/docs/diagrams/view-allocation-deployment.png)](architecture/docs/view-allocation-deployment.md)
 
 ---
 
@@ -105,6 +65,7 @@ C4Component
 ├── frontend/             # React UI
 ├── e2e/                  # Playwright UI E2E tests
 ├── docs/                 # BDD scenarios and teaching notes
+├── architecture/         # Architecture description (Views and Beyond, UML)
 ├── .env.example          # Documented Compose settings (copy to .env)
 └── docker-compose.yml    # Local deployment
 ```
@@ -154,7 +115,7 @@ docker compose down -v
 
 | Service | Base image | Runs as | Listens on (container) | Published on host |
 |---------|------------|---------|------------------------|-------------------|
-| `frontend` | `nginxinc/nginx-unprivileged:1.27-alpine` | `nginx` (uid 101) | 8080 | `5173` |
+| `frontend` | `nginxinc/nginx-unprivileged:1.31-alpine` | `nginx` (uid 101) | 8080 | `5173` |
 | `backend` | `eclipse-temurin:27-jre-alpine` | `app` (uid 10001) | 8080 | `8080` |
 | `db` | `postgres:16-alpine` | `postgres` (server processes) | 5432 | `127.0.0.1:5432` |
 
