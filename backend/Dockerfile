@@ -13,6 +13,11 @@ RUN mvn -B -q clean package -DskipTests
 # that actually runs.
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+# Run as an unprivileged user. The numeric id lets Kubernetes verify
+# runAsNonRoot; the jar stays owned by root, so the app can read it but not
+# modify it.
+RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
 COPY --from=build /app/target/student-news-0.0.1-SNAPSHOT.jar app.jar
+USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
