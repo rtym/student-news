@@ -46,10 +46,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up JDK 27
         uses: actions/setup-java@v6
         with:
-          java-version: '21'
+          java-version: '27'
           distribution: temurin
           cache: maven            # without this, Maven re-downloads the world every run
 
