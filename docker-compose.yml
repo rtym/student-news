@@ -3,15 +3,19 @@ services:
     image: postgres:16-alpine
     container_name: student-news-db
     environment:
-      POSTGRES_DB: student_news
-      POSTGRES_USER: student
-      POSTGRES_PASSWORD: student
+      # Defaults apply when no .env file is present (CI, first run); see
+      # .env.example. Postgres reads these only when the volume is first
+      # created, so after changing them run `docker compose down -v`.
+      POSTGRES_DB: ${POSTGRES_DB:-student_news}
+      POSTGRES_USER: ${POSTGRES_USER:-student}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-student}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U student -d student_news"]
+      # $$ leaves expansion to the container, which has the variables above.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -21,9 +25,11 @@ services:
       context: ./backend
     container_name: student-news-backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/student_news
-      SPRING_DATASOURCE_USERNAME: student
-      SPRING_DATASOURCE_PASSWORD: student
+      # `db` is the Compose service name, resolved as a hostname on the
+      # project network.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-student_news}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-student}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-student}
     depends_on:
       db:
         condition: service_healthy
