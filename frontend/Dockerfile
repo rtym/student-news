@@ -1,7 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci installs exactly what package-lock.json pins and fails if the lock
+# file and package.json disagree, the same as the CI jobs.
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 RUN npm run build
 
