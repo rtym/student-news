@@ -10,6 +10,6 @@ RUN npm run build
 # nginx-unprivileged is the same nginx with every process running as the
 # nginx user (uid 101) instead of a root master process. It listens on 8080
 # because binding ports below 1024 has traditionally required root.
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
