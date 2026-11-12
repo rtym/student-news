@@ -12,6 +12,7 @@ Supported operations:
 - publish news
 - archive news
 - delete news
+- add a picture to a post (needs [`avatar-service`](avatar-service/README.md), which Homework 12 containerises)
 
 ---
 
@@ -64,6 +65,7 @@ explained in the [legend](architecture/docs/diagrams/legend.png).
 ├── backend/              # Spring Boot API
 ├── frontend/             # React UI
 ├── e2e/                  # Playwright UI E2E tests
+├── avatar-service/       # Homework 12 starter: post pictures, not yet containerised
 ├── docs/                 # BDD scenarios and teaching notes
 ├── architecture/         # Architecture description (Views and Beyond, UML)
 ├── .env.example          # Documented Compose settings (copy to .env)
