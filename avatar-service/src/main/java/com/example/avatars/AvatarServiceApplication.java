@@ -25,10 +25,13 @@ public class AvatarServiceApplication implements WebMvcConfigurer {
         return new MultipartConfigElement("", maxBytes, maxBytes + 64 * 1024, 0);
     }
 
-    /** The news UI calls this service straight from the browser, like the backend. */
+    /**
+     * The news UI calls this service straight from the browser, like the backend:
+     * /avatars/** for the pictures, and /health to say why pictures are off.
+     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/avatars/**")
+        registry.addMapping("/**")
                 .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
