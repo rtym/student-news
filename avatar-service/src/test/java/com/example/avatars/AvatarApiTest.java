@@ -237,6 +237,8 @@ class AvatarApiTest {
         assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
                 type -> assertThat(type).startsWith("application/json"));
         assertThat(response.body()).contains(ErrorResponses.tooLarge(MAX_BYTES));
+        // Without this header the browser hides the answer from the news UI.
+        assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).hasValue("http://localhost:5173");
         assertThat(storedFiles()).isEmpty();
     }
 
@@ -250,6 +252,7 @@ class AvatarApiTest {
         body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII));
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/avatars/" + id))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .header("Origin", "http://localhost:5173")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
                 .build();
         try (HttpClient client = HttpClient.newHttpClient()) {
