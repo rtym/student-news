@@ -54,6 +54,7 @@ explained in the [legend](architecture/docs/diagrams/legend.png).
 - Spring Data JPA + Hibernate
 - React 19 + Vite
 - Docker + Docker Compose
+- Kubernetes on minikube (optional, see [Run on minikube](#run-on-minikube))
 
 ---
 
@@ -66,6 +67,7 @@ explained in the [legend](architecture/docs/diagrams/legend.png).
 ├── e2e/                  # Playwright UI E2E tests
 ├── docs/                 # BDD scenarios and teaching notes
 ├── architecture/         # Architecture description (Views and Beyond, UML)
+├── k8s/                  # Kubernetes manifests for minikube
 ├── .env.example          # Documented Compose settings (copy to .env)
 └── docker-compose.yml    # Local deployment
 ```
@@ -129,6 +131,151 @@ docker compose exec frontend whoami   # nginx
 The frontend's nginx listens on 8080 instead of 80, because binding a port below 1024 has traditionally required root. Compose maps it to 5173 on the host, so the URL does not change. The frontend and backend both listen on 8080 without clashing because each container has its own network namespace.
 
 `docker compose exec db whoami` prints `root`: the Postgres image starts as root and its entrypoint switches to the `postgres` user before starting the server, but `exec` uses the image's default user.
+
+---
+
+## Run on minikube
+
+The same three containers also run on a local Kubernetes cluster. The manifests are in [`k8s/`](k8s/): one commented file per component, numbered in the order they are applied. Docker Compose is not affected and works as before.
+
+| File | Creates |
+|------|---------|
+| `00-namespace.yaml` | Namespace `student-news` |
+| `01-secret.yaml.example` | Example of the Secret `db-credentials`, with placeholders (never applied) |
+| `02-postgres.yaml` | PersistentVolumeClaim, Deployment (1 replica) and Service `db` |
+| `03-backend.yaml` | ConfigMap, Deployment (2 replicas) and Service `backend` |
+| `04-frontend.yaml` | Deployment (2 replicas) and Service `frontend` |
+
+### In short
+
+With Docker Desktop running, from the project root:
+
+```bash
+minikube start
+
+kubectl apply -f k8s/00-namespace.yaml
+kubectl create secret generic db-credentials \
+  --namespace student-news \
+  --from-literal=POSTGRES_DB=student_news \
+  --from-literal=POSTGRES_USER=student \
+  --from-literal=POSTGRES_PASSWORD='choose-your-own'
+
+./k8s/up.sh   # build the images, load them, apply the manifests, wait
+```
+
+Then, each in its own terminal:
+
+```bash
+kubectl port-forward -n student-news service/backend 8080:8080
+kubectl port-forward -n student-news service/frontend 5173:8080
+```
+
+Open [http://localhost:5173](http://localhost:5173). When you are done: `kubectl delete namespace student-news` and `minikube stop`.
+
+The rest of this section goes through the same steps one command at a time and explains each.
+
+### Prerequisites
+
+- Docker Desktop installed and running
+- [minikube](https://minikube.sigs.k8s.io/docs/start/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+On macOS: `brew install minikube kubectl`.
+
+### 1. Start the cluster
+
+```bash
+minikube start
+kubectl config current-context   # must print: minikube
+```
+
+`kubectl` always talks to the *current context*. If the second command prints anything else, switch with `kubectl config use-context minikube` before you go on.
+
+### 2. Build the images and load them into minikube
+
+```bash
+docker build -t student-news-backend:1.0 ./backend
+docker build -t student-news-frontend:1.0 ./frontend
+
+minikube image load student-news-backend:1.0
+minikube image load student-news-frontend:1.0
+```
+
+minikube has its own container runtime and cannot see the images in Docker Desktop. There is no registry to pull from either, so `minikube image load` copies each image into the cluster. The tag is an explicit version, never `:latest`: for a `:latest` image Kubernetes by default pulls from a registry on every start, and these images only exist locally.
+
+### 3. Create the namespace and the Secret
+
+```bash
+kubectl apply -f k8s/00-namespace.yaml
+
+kubectl create secret generic db-credentials \
+  --namespace student-news \
+  --from-literal=POSTGRES_DB=student_news \
+  --from-literal=POSTGRES_USER=student \
+  --from-literal=POSTGRES_PASSWORD='choose-your-own'
+```
+
+The password is yours to choose, and the real Secret is never committed. Git only holds [`k8s/01-secret.yaml.example`](k8s/01-secret.yaml.example), which shows the same Secret as a manifest with placeholder values. If you prefer a file, copy it to `k8s/01-secret.yaml` (git-ignored) and edit the copy.
+
+Postgres reads these values only when its data directory is first created, the same as under Compose. To change the password later, start from an empty volume: do the [teardown](#teardown) and begin again from this step.
+
+### 4. Apply the manifests
+
+```bash
+kubectl apply -f k8s/
+```
+
+### 5. Wait for the rollout
+
+```bash
+kubectl rollout status deployment/db -n student-news
+kubectl rollout status deployment/backend -n student-news
+kubectl rollout status deployment/frontend -n student-news
+
+kubectl get pods,svc,pvc -n student-news
+```
+
+Every pod should be `1/1 Running` and the PersistentVolumeClaim `Bound`. A `1` under `RESTARTS` for the backend pods is normal on the first start (see [Troubleshooting](#troubleshooting)).
+
+Steps 2, 4 and 5 in one command: [`./k8s/up.sh`](k8s/up.sh).
+
+### 6. Open the app
+
+Run each command in its own terminal and leave it running:
+
+```bash
+kubectl port-forward -n student-news service/backend 8080:8080
+```
+
+```bash
+kubectl port-forward -n student-news service/frontend 5173:8080
+```
+
+Then open [http://localhost:5173](http://localhost:5173). The API and Swagger UI are at the same addresses as under Compose, for example [http://localhost:8080/api/news](http://localhost:8080/api/news).
+
+Why the backend needs a port-forward too: the React code runs in your browser, not in the cluster, and it calls `http://localhost:8080/api/news`, an address compiled into the JavaScript when the image is built. So it is the browser on your laptop that must reach the backend, and a Service name such as `backend` only resolves inside the cluster. The port-forward makes `localhost:8080` on your machine lead to the backend Service, exactly the address the frontend already uses, so no code changes.
+
+A port-forward is a tunnel to **one** pod behind the Service. When that pod is deleted or replaced by a rollout, the command prints `lost connection to pod` and exits. The app is still running; start the port-forward again.
+
+### Teardown
+
+```bash
+kubectl delete namespace student-news   # the app, the Secret and the data
+minikube stop                           # stop the cluster, keep it for next time
+minikube delete                         # or remove the cluster completely
+```
+
+### Troubleshooting
+
+Start with `kubectl get pods -n student-news`, then `kubectl describe pod <name> -n student-news` and read the `Events` at the bottom.
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Backend or frontend pod is `ErrImagePull` / `ImagePullBackOff` | The image is not inside minikube: it was not loaded, or the tag in the manifest differs from the tag you built. A `:latest` tag has the same effect, because Kubernetes then pulls from a registry by default, and these images are in no registry. | `minikube image ls \| grep student-news` shows what the cluster has. Build with the tag from the manifest (`1.0`), run `minikube image load` again, and never use `:latest`. |
+| Backend pods are `Error` or `CrashLoopBackOff` right after `kubectl apply`, with `RESTARTS` going up | The backend started before Postgres was ready. Spring Boot exits when it cannot connect, and Kubernetes restarts it. | Wait: it recovers once the `db` pod is `1/1`. `kubectl logs deployment/backend -n student-news --previous` shows `Connection to db:5432 refused`. If it never recovers, check the `db` pod and the Secret. |
+| `postgres-data` stays `Pending`, and so does the `db` pod | Nothing is creating the volume: the cluster has no default StorageClass. | `kubectl get storageclass` should list `standard (default)`. If not: `minikube addons enable default-storageclass` and `minikube addons enable storage-provisioner`. `kubectl describe pvc postgres-data -n student-news` shows the reason. |
+| Pods are `CreateContainerConfigError` | The Secret `db-credentials` does not exist in the namespace. | Create it (step 3). The pods start on their own. |
+| The page opens but shows an error instead of the news list | The browser cannot reach `localhost:8080`: the backend port-forward is not running, or it exited when its pod was replaced. | Start the backend port-forward again (step 6). |
 
 ---
 
