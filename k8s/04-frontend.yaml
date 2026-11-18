@@ -1,0 +1,67 @@
+# Frontend (React build served by nginx): the pods (Deployment) and a stable
+# name in front of them (Service).
+#
+# There is no ConfigMap here. The API address is compiled into the JavaScript
+# when the image is built (http://localhost:8080/api/news), and it is the
+# browser that calls it, not this pod. See "Run on minikube" in the README.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: student-news
+  labels:
+    app: frontend
+spec:
+  # Two identical pods serving the same static files.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # Explicit version and a local image, as for the backend.
+          image: student-news-frontend:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            # nginx-unprivileged listens on 8080, not 80 (frontend/Dockerfile).
+            - containerPort: 8080
+          # Ready as soon as nginx serves the page.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # nginx serving static files needs very little.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          # The image already runs as the `nginx` user (uid 101). Stating it
+          # here makes Kubernetes enforce it.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: student-news
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: 8080
+      targetPort: 8080
