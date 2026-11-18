@@ -1,0 +1,133 @@
+# Backend (Spring Boot API): settings (ConfigMap), the pods (Deployment) and
+# a stable name in front of them (Service).
+
+# A ConfigMap holds settings that are not secret. Changing one means editing
+# this file, not rebuilding the image.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: student-news
+data:
+  # `db` is the name of the Postgres Service (02-postgres.yaml); the cluster
+  # DNS resolves it, as Compose resolves a service name. The database name at
+  # the end must match POSTGRES_DB in the Secret.
+  SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/student_news
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: student-news
+  labels:
+    app: backend
+spec:
+  # Two identical pods. The API keeps no state of its own (everything is in
+  # Postgres), so either pod can answer any request.
+  replicas: 2
+  # A new version replaces the pods one at a time. maxUnavailable: 0 means an
+  # old pod is only removed once a new one is Ready, so a broken release (a
+  # typo in the image tag, for example) never takes the running app down.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # at most one extra pod during the update
+      maxUnavailable: 0    # never fewer than 2 Ready pods
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # An explicit version, never :latest. For a :latest image Kubernetes
+          # by default pulls from a registry on every start, and this image
+          # only exists locally (built with docker, copied in with
+          # `minikube image load`).
+          image: student-news-backend:1.0
+          # Use the image already on the node; pull only when it is missing.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          # Every key of the ConfigMap becomes an environment variable.
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          # The credentials come from the Secret, one key at a time, because
+          # Spring Boot expects different variable names than the Secret has.
+          env:
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_PASSWORD
+          # The app has no dedicated health endpoint (Spring Actuator is not
+          # a dependency), so the probes use what does exist.
+          #
+          # startupProbe: gives the JVM time to start. The other two probes
+          # only begin once this one has passed. Up to 30 x 5s = 150 seconds.
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
+          # readinessProbe: "may this pod receive traffic?" GET /api/news
+          # runs a real query, so a pod that cannot reach the database is
+          # taken out of the Service until it can.
+          readinessProbe:
+            httpGet:
+              path: /api/news
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # livenessProbe: "is this process stuck?" When it fails, the
+          # container is restarted. It only checks that the port answers, on
+          # purpose: if it called the database too, a database outage would
+          # restart every backend pod, and a restart cannot fix the database.
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Sized so the whole stack fits a small minikube (2 CPUs, 2200 MB),
+          # including the one extra pod of a rolling update. The JVM is the
+          # hungriest container here: a running pod uses about 250Mi.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          # The image already runs as the `app` user (USER 10001:10001 in
+          # backend/Dockerfile). Stating it here makes Kubernetes enforce it.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+---
+# One stable name, `backend`, in front of both pods. Requests to it are
+# spread across the pods that are Ready.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: student-news
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
