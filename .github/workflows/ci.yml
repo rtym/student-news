@@ -38,6 +38,36 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+  # ---------------------------------------------------------------- stage 0
+  # Just as cheap: kubeconform compares every manifest in k8s/ with the
+  # official Kubernetes API schemas. No cluster is started. A misspelt field
+  # or a wrong indent fails here in seconds, not later at `kubectl apply`.
+  k8s-validate:
+    name: Kubernetes · validate manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KUBECONFORM_VERSION: v0.8.0
+      # The Kubernetes version whose schemas the manifests are checked against.
+      KUBERNETES_VERSION: 1.37.0
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+
+      # -strict also rejects fields the schema does not know, which is what a
+      # typo such as `replicsa:` looks like.
+      - name: Validate manifests
+        run: kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" k8s/
+
+      # In a directory kubeconform reads .yaml, .yml and .json files only, so
+      # the example Secret (.yaml.example) is passed on standard input.
+      - name: Validate the example Secret
+        run: kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" - < k8s/01-secret.yaml.example
+
   # ---------------------------------------------------------------- stage 1
   backend-test:
     name: Backend · unit tests
@@ -138,7 +168,7 @@ jobs:
   # spending minutes building images for code whose tests already failed.
   package:
     name: Package · container images
-    needs: [frontend-lint, backend-test, backend-integration-test, frontend-build]
+    needs: [frontend-lint, k8s-validate, backend-test, backend-integration-test, frontend-build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -168,7 +198,7 @@ jobs:
   ci-status:
     name: CI status
     if: always()
-    needs: [frontend-lint, backend-test, backend-integration-test, frontend-build, package]
+    needs: [frontend-lint, k8s-validate, backend-test, backend-integration-test, frontend-build, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any stage failed
