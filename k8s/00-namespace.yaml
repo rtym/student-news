@@ -1,0 +1,11 @@
+# A Namespace is a named area inside the cluster. Everything for this app
+# lives in `student-news`, so it does not mix with other workloads and
+# `kubectl delete namespace student-news` removes all of it in one command.
+#
+# The file names are numbered in the order they must exist: the namespace
+# first, then the Secret, the database, the backend and the frontend.
+# `kubectl apply -f k8s/` reads the files in alphabetical order.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: student-news

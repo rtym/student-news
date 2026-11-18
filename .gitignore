@@ -32,6 +32,9 @@ coverage/
 # Docker overrides (local only)
 docker-compose.override.yml
 
+# Kubernetes: a real Secret made from k8s/01-secret.yaml.example (local only)
+k8s/01-secret.yaml
+
 # Playwright E2E
 e2e/node_modules/
 e2e/playwright-report/
