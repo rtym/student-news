@@ -1,0 +1,127 @@
+# PostgreSQL: storage (PersistentVolumeClaim), the pod (Deployment) and a
+# stable network name for it (Service). This is the `db` service from
+# docker-compose.yml.
+
+# A PersistentVolumeClaim asks the cluster for disk space that outlives any
+# pod. Delete the db pod and its replacement mounts the same claim, so the
+# data is still there. This is the Compose named volume `postgres_data`.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: student-news
+spec:
+  # ReadWriteOnce (RWO): the volume can be mounted read-write by one node at
+  # a time. No storageClassName is set, so the cluster's default class is
+  # used; in minikube that is `standard`, which creates the volume for us.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: student-news
+  labels:
+    app: db
+spec:
+  # One Postgres only. Two pods writing to the same data directory would
+  # corrupt it; a replicated database needs much more than `replicas: 2`.
+  replicas: 1
+  # Recreate stops the old pod before it starts the new one. The default,
+  # RollingUpdate, starts the new pod first, and that pod would wait for a
+  # volume the old pod still holds.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      securityContext:
+        # Makes the mounted volume writable for group 70 (postgres) on
+        # clusters whose storage is created root-owned. minikube's volumes
+        # are world-writable, so there it changes nothing.
+        fsGroup: 70
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          # Use the image already on the node; pull only when it is missing.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          # Every key of the Secret becomes an environment variable. The keys
+          # are named exactly as the image expects: POSTGRES_DB, POSTGRES_USER
+          # and POSTGRES_PASSWORD. Postgres reads them only when the data
+          # directory is first created (see "Run on minikube" in the README).
+          envFrom:
+            - secretRef:
+                name: db-credentials
+          env:
+            # Keep the data in a subdirectory of the volume. Postgres insists
+            # on owning its data directory, and it cannot own the mount point
+            # itself when it does not run as root.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          # Ready means "accepting connections". Until this probe passes, the
+          # `db` Service sends no traffic to the pod. Same check as the
+          # Compose healthcheck; the shell expands the variables set above.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          # requests: what the scheduler reserves for the container.
+          # limits:   the most it may use. Above the memory limit the
+          #           container is killed (OOMKilled); above the CPU limit it
+          #           is only slowed down.
+          resources:
+            requests:
+              cpu: 100m        # 100 millicores = a tenth of one CPU
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          # Under Compose the image starts as root and then switches to the
+          # postgres user. Here it starts as postgres (uid 70 in the Alpine
+          # image) and is never root at all.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+# Pods come and go and get a new IP address each time. A Service is a stable
+# name and address in front of them. It is named exactly `db`, so the
+# backend's URL jdbc:postgresql://db:5432/... is the same as under Compose.
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: student-news
+spec:
+  # ClusterIP (the default type): reachable only from inside the cluster.
+  type: ClusterIP
+  # Traffic goes to every Ready pod carrying this label.
+  selector:
+    app: db
+  ports:
+    - port: 5432         # port of the Service
+      targetPort: 5432   # port of the container
