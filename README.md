@@ -12,6 +12,7 @@ Supported operations:
 - publish news
 - archive news
 - delete news
+- add a picture to a post (needs [`avatar-service`](avatar-service/README.md), which Homework 12 containerises)
 
 ---
 
@@ -65,6 +66,7 @@ explained in the [legend](architecture/docs/diagrams/legend.png).
 ├── backend/              # Spring Boot API
 ├── frontend/             # React UI
 ├── e2e/                  # Playwright UI E2E tests
+├── avatar-service/       # Homework 13 starter: containerised in Homework 12, not yet on Kubernetes
 ├── docs/                 # BDD scenarios and teaching notes
 ├── architecture/         # Architecture description (Views and Beyond, UML)
 ├── k8s/                  # Kubernetes manifests for minikube
@@ -145,6 +147,8 @@ The same three containers also run on a local Kubernetes cluster. The manifests 
 | `02-postgres.yaml` | PersistentVolumeClaim, Deployment (1 replica) and Service `db` |
 | `03-backend.yaml` | ConfigMap, Deployment (2 replicas) and Service `backend` |
 | `04-frontend.yaml` | Deployment (2 replicas) and Service `frontend` |
+
+`avatar-service` has no manifest yet, so on minikube the news UI says pictures are unavailable. Adding `k8s/05-avatar-service.yaml` and including it in `k8s/up.sh` is Homework 13: see [Run it on Kubernetes](avatar-service/README.md#run-it-on-kubernetes-homework-13).
 
 ### In short
 
